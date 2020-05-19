@@ -3328,7 +3328,7 @@ Strophe.SASLExternal.prototype.onChallenge = function(connection) {
     return connection.authcid === connection.authzid ? '' : connection.authzid;
 };
 
-export { Strophe, $build, $iq, $msg, $pres, SHA1};
+export { Strophe, $build, $iq, $msg, $pres};
 
 export default {
     'Strophe':         Strophe,
