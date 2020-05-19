@@ -8,7 +8,6 @@
 
 import * as shims from './shims';
 import { atob, btoa } from 'abab'
-import SHA1 from './sha1';
 import utils from './utils';
 
 /** Function: $build
@@ -2269,12 +2268,8 @@ Strophe.Connection.prototype = {
     registerSASLMechanisms: function (mechanisms) {
         this.mechanisms = {};
         mechanisms = mechanisms || [
-            Strophe.SASLAnonymous,
             Strophe.SASLExternal,
-            Strophe.SASLOAuthBearer,
-            Strophe.SASLXOAuth2,
-            Strophe.SASLPlain,
-            Strophe.SASLSHA1
+            Strophe.SASLPlain
         ];
         mechanisms.forEach(this.registerSASLMechanism.bind(this));
     },
@@ -3292,17 +3287,6 @@ Strophe.SASLMechanism.prototype = {
 
 // Building SASL callbacks
 
-/** PrivateConstructor: SASLAnonymous
- *  SASL ANONYMOUS authentication.
- */
-Strophe.SASLAnonymous = function() {};
-Strophe.SASLAnonymous.prototype = new Strophe.SASLMechanism("ANONYMOUS", false, 20);
-
-Strophe.SASLAnonymous.prototype.test = function(connection) {
-    return connection.authcid === null;
-};
-
-
 /** PrivateConstructor: SASLPlain
  *  SASL PLAIN authentication.
  */
@@ -3321,104 +3305,6 @@ Strophe.SASLPlain.prototype.onChallenge = function(connection) {
     auth_str = auth_str + connection.pass;
     return utils.utf16to8(auth_str);
 };
-
-
-/** PrivateConstructor: SASLSHA1
- *  SASL SCRAM SHA 1 authentication.
- */
-Strophe.SASLSHA1 = function() {};
-Strophe.SASLSHA1.prototype = new Strophe.SASLMechanism("SCRAM-SHA-1", true, 40);
-
-Strophe.SASLSHA1.prototype.test = function(connection) {
-    return connection.authcid !== null;
-};
-
-Strophe.SASLSHA1.prototype.onChallenge = function(connection, challenge, test_cnonce) {
-    const cnonce = test_cnonce;
-    let auth_str = "n=" + utils.utf16to8(connection.authcid);
-    auth_str += ",r=";
-    auth_str += cnonce;
-    connection._sasl_data.cnonce = cnonce;
-    connection._sasl_data["client-first-message-bare"] = auth_str;
-    auth_str = "n,," + auth_str;
-
-    this.onChallenge = (connection, challenge) => {
-        let nonce, salt, iter, Hi, U, U_old, i, k;
-        let responseText = "c=biws,";
-        let authMessage = `${connection._sasl_data["client-first-message-bare"]},${challenge},`;
-        const cnonce = connection._sasl_data.cnonce;
-
-        // A Hacky sasl-prep?
-        const attribMatch = /([a-z]+)=([^,]+)(,|$)/;
-
-        while (challenge.match(attribMatch)) {
-            const matches = challenge.match(attribMatch);
-            challenge = challenge.replace(matches[0], "");
-            switch (matches[1]) {
-            case "r":
-                nonce = matches[2];
-                break;
-            case "s":
-                salt = matches[2];
-                break;
-            case "i":
-                iter = matches[2];
-                break;
-            }
-        }
-
-        if (nonce.substr(0, cnonce.length) !== cnonce) {
-            connection._sasl_data = {};
-            return connection._sasl_failure_cb();
-        }
-
-        responseText += "r=" + nonce;
-        authMessage += responseText;
-
-        salt = str2bin(atob(salt));
-        const pass = utils.utf16to8(connection.pass);
-        const saltedKey = SHA1.pbkdf2_generate_salted_key(pass, SHA1.str2binb(salt), iter);
-        const clientKey = await SHA1.pbkdf2_sign(saltedKey, str2binb("Client Key")).then(SHA1.hmac_generate_key_from_raw);
-        const clientKeyRaw = await crypto.subtle.exportKey("raw", clientKey);
-        const clientSignature = await SHA1.core_hmac_sha1(clientKey, authMessage);
-        const serverKey = await SHA1.pbkdf2_sign(saltedKey, str2binb("Server Key"));
-        const storedKey = await SHA1.sha1(clientKey).then((raw) => SHA1.hmac_generate_key_from_raw(raw))
-        // Calculate the clientProof
-        let clientProof = new Uint8Array(20);
-        for (let j = 0; j < 20; j++) {
-          clientProof[i] = clientSignature[j] ^ clientKeyRaw[i];
-        }
-        connection._sasl_data["server-signature"] = await b64_hmac_sha1(serverKey, SHA1.str2binb(authMessage));
-        responseText += ",p=" + btoa(SHA1.binb2str(clientProof));
-        return responseText;
-    }
-    return auth_str;
-};
-
-
-/** PrivateConstructor: SASLOAuthBearer
- *  SASL OAuth Bearer authentication.
- */
-Strophe.SASLOAuthBearer = function() {};
-Strophe.SASLOAuthBearer.prototype = new Strophe.SASLMechanism("OAUTHBEARER", true, 60);
-
-Strophe.SASLOAuthBearer.prototype.test = function(connection) {
-    return connection.pass !== null;
-};
-Strophe.SASLOAuthBearer.prototype.onChallenge = function(connection) {
-    let auth_str = 'n,';
-    if (connection.authcid !== null) {
-        auth_str = auth_str + 'a=' + connection.authzid;
-    }
-    auth_str = auth_str + ',';
-    auth_str = auth_str + "\u0001";
-    auth_str = auth_str + 'auth=Bearer ';
-    auth_str = auth_str + connection.pass;
-    auth_str = auth_str + "\u0001";
-    auth_str = auth_str + "\u0001";
-    return utils.utf16to8(auth_str);
-};
-
 
 /** PrivateConstructor: SASLExternal
  *  SASL EXTERNAL authentication.
@@ -3442,27 +3328,6 @@ Strophe.SASLExternal.prototype.onChallenge = function(connection) {
     return connection.authcid === connection.authzid ? '' : connection.authzid;
 };
 
-
-/** PrivateConstructor: SASLXOAuth2
- *  SASL X-OAuth2 authentication.
- */
-Strophe.SASLXOAuth2 = function () { };
-Strophe.SASLXOAuth2.prototype = new Strophe.SASLMechanism("X-OAUTH2", true, 50);
-
-Strophe.SASLXOAuth2.prototype.test = function (connection) {
-    return connection.pass !== null;
-};
-
-Strophe.SASLXOAuth2.prototype.onChallenge = function (connection) {
-    let auth_str = '\u0000';
-    if (connection.authcid !== null) {
-        auth_str = auth_str + connection.authzid;
-    }
-    auth_str = auth_str + "\u0000";
-    auth_str = auth_str + connection.pass;
-    return utils.utf16to8(auth_str);
-};
-
 export { Strophe, $build, $iq, $msg, $pres, SHA1};
 
 export default {
@@ -3470,10 +3335,5 @@ export default {
     '$build':          $build,
     '$iq':             $iq,
     '$msg':            $msg,
-    '$pres':           $pres,
-    'SHA1':            SHA1,
-    'b64_hmac_sha1':   SHA1.b64_hmac_sha1,
-    'b64_sha1':        SHA1.b64_sha1,
-    'str_hex_hmac_sha1':   SHA1.str_hex_hmac_sha1,
-    'str_hex_sha1':        SHA1.str_hex_sha1
+    '$pres':           $pres
 };
