@@ -3287,6 +3287,11 @@ Strophe.SASLMechanism.prototype = {
 
 // Building SASL callbacks
 
+/** PrivateConstructor: SASLAnonymous
+ *  SASL ANONYMOUS authentication.
+ */
+
+
 /** PrivateConstructor: SASLPlain
  *  SASL PLAIN authentication.
  */
