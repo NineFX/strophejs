@@ -3380,7 +3380,7 @@ Strophe.SASLXOAuth2.prototype.onChallenge = function (connection) {
     return utils.utf16to8(auth_str);
 };
 
-export { Strophe, $build, $iq, $msg, $pres;
+export { Strophe, $build, $iq, $msg, $pres};
 
 export default {
     'Strophe':         Strophe,
