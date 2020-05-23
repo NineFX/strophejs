@@ -3162,10 +3162,7 @@ Strophe.Connection.prototype = {
  *
  *  By default, all mechanisms are enabled and the priorities are
  *
- *      OAUTHBEARER - 60
- *      SCRAM-SHA1 - 50
  *      PLAIN - 30
- *      ANONYMOUS - 20
  *      EXTERNAL - 10
  *
  *  See: Strophe.Connection.addSupportedSASLMechanisms
