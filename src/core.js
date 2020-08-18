@@ -3302,7 +3302,7 @@ Strophe.SASLPlain.prototype.test = function(connection) {
     return connection.authcid !== null;
 };
 
-Strophe.SASLPlain.prototype.onChallenge = function(connection, certificate) {
+Strophe.SASLPlain.prototype.onChallenge = function(connection, challenge, certificate) {
     let auth_str = connection.authzid;
     auth_str = auth_str + "\u0000";
     auth_str = auth_str + connection.authcid;
@@ -3322,7 +3322,7 @@ Strophe.SASLPlain.prototype.onChallenge = function(connection, certificate) {
 Strophe.SASLExternal = function() {};
 Strophe.SASLExternal.prototype = new Strophe.SASLMechanism("EXTERNAL", true, 10);
 
-Strophe.SASLExternal.prototype.onChallenge = function(connection, certificate) {
+Strophe.SASLExternal.prototype.onChallenge = function(connection, challenge, certificate) {
     /** According to XEP-178, an authzid SHOULD NOT be presented when the
      * authcid contained or implied in the client certificate is the JID (i.e.
      * authzid) with which the user wants to log in as.
@@ -3330,7 +3330,9 @@ Strophe.SASLExternal.prototype.onChallenge = function(connection, certificate) {
      * To NOT send the authzid, the user should therefore set the authcid equal
      * to the JID when instantiating a new Strophe.Connection object.
      */
+    console.log("SASL Certificate " + certificate);
     if (certificate) {
+      console.log("=")
       return "=";
     }
     return connection.authcid === connection.authzid ? '' : connection.authzid;
