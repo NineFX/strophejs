@@ -3330,9 +3330,7 @@ Strophe.SASLExternal.prototype.onChallenge = function(connection, challenge, cer
      * To NOT send the authzid, the user should therefore set the authcid equal
      * to the JID when instantiating a new Strophe.Connection object.
      */
-    console.log("SASL Certificate " + certificate);
     if (certificate) {
-      console.log("=")
       return "=";
     }
     return connection.authcid === connection.authzid ? '' : connection.authzid;
