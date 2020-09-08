@@ -1717,7 +1717,8 @@ Strophe.Connection.prototype = {
      *      certificate), set authcid to that same JID. See XEP-178 for more
      *      details.
      */
-    connect: function (jid, pass, callback, wait, hold, route, authcid) {
+    connect: function (jid, pass, callback, certificate, wait, hold, route, authcid) {
+        this.certificate = certificate;
         this.jid = jid;
         /** Variable: authzid
          *  Authorization identity.
@@ -2680,8 +2681,10 @@ Strophe.Connection.prototype = {
                 'mechanism': this._sasl_mechanism.name
             });
             if (this._sasl_mechanism.isClientFirst) {
-                const response = this._sasl_mechanism.onChallenge(this, null);
-                request_auth_exchange.t(btoa(response));
+                const response = this._sasl_mechanism.onChallenge(this, null, this.certificate);
+                request_auth_exchange.t(
+                  this.certificate ? response : btoa(response)
+                );
             }
             this.send(request_auth_exchange.tree());
             mechanism_found = true;
@@ -2696,7 +2699,7 @@ Strophe.Connection.prototype = {
      */
     _sasl_challenge_cb: function(elem) {
       const challenge = atob(Strophe.getText(elem));
-      const response = this._sasl_mechanism.onChallenge(this, challenge);
+      const response = this._sasl_mechanism.onChallenge(this, challenge, this.certificate);
       const stanza = $build('response', {'xmlns': Strophe.NS.SASL});
       if (response !== "") {
         stanza.t(btoa(response));
@@ -3252,7 +3255,7 @@ Strophe.SASLMechanism.prototype = {
      *  Returns:
      *    (String) Mechanism response.
      */
-    onChallenge: function (connection, challenge) {
+    onChallenge: function (connection, challenge, certificate) {
         throw new Error("You should implement challenge handling!");
     },
 
@@ -3299,7 +3302,7 @@ Strophe.SASLPlain.prototype.test = function(connection) {
     return connection.authcid !== null;
 };
 
-Strophe.SASLPlain.prototype.onChallenge = function(connection) {
+Strophe.SASLPlain.prototype.onChallenge = function(connection, challenge, certificate) {
     let auth_str = connection.authzid;
     auth_str = auth_str + "\u0000";
     auth_str = auth_str + connection.authcid;
@@ -3319,7 +3322,7 @@ Strophe.SASLPlain.prototype.onChallenge = function(connection) {
 Strophe.SASLExternal = function() {};
 Strophe.SASLExternal.prototype = new Strophe.SASLMechanism("EXTERNAL", true, 10);
 
-Strophe.SASLExternal.prototype.onChallenge = function(connection) {
+Strophe.SASLExternal.prototype.onChallenge = function(connection, challenge, certificate) {
     /** According to XEP-178, an authzid SHOULD NOT be presented when the
      * authcid contained or implied in the client certificate is the JID (i.e.
      * authzid) with which the user wants to log in as.
@@ -3327,6 +3330,9 @@ Strophe.SASLExternal.prototype.onChallenge = function(connection) {
      * To NOT send the authzid, the user should therefore set the authcid equal
      * to the JID when instantiating a new Strophe.Connection object.
      */
+    if (certificate) {
+      return "=";
+    }
     return connection.authcid === connection.authzid ? '' : connection.authzid;
 };
 
